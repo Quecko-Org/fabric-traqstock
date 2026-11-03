@@ -130,7 +130,7 @@ curl https://rpc.your-domain.com/health
 ### `POST /v1/proofs` — Anchor proof (write)
 
 Requires **write** API key. Anchors immutable dataset metadata on Fabric. File binary stays on IPFS.
-
+  
 **Request**
 
 ```http
@@ -380,7 +380,8 @@ chmod +x bisl-proof-transparency/scripts/*.sh
 Upload `bisl-deploy.tar.gz` to your VPS and run `sudo ./scripts/install-vps.sh`.
 
 Full guide: [deploy/README-DEPLOY.md](./deploy/README-DEPLOY.md)  
-**AWS (EC2) guide:** [deploy/README-AWS.md](./deploy/README-AWS.md)
+**AWS (EC2) guide:** [deploy/README-AWS.md](./deploy/README-AWS.md)  
+**Admin Explorer (blocks/txs):** [explorer/README.md](./explorer/README.md) — localhost only + SSH tunnel on AWS
 
 ---
 

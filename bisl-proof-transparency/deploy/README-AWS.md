@@ -39,12 +39,13 @@ AWS EC2 (Ubuntu 22.04)
 
 | Type | Port | Source | Why |
 |------|------|--------|-----|
-| SSH | 22 | Your IP only | Admin access |
+| SSH | 22 | Your IP only | Admin access + Explorer tunnel |
 | HTTPS | 443 | `0.0.0.0/0` | Public RPC (after TLS) |
 | HTTP | 80 | `0.0.0.0/0` | Let’s Encrypt / redirect |
 | Custom TCP | 4000 | Your IP only (optional) | Direct RPC testing |
 
-**Do not** open Fabric ports (7050, 7051, 8051, 9050, 9051) to the internet.
+**Do not** open Fabric ports (7050, 7051, 8051, 9050, 9051) to the internet.  
+**Do not** open Explorer port **8080** publicly — use SSH tunnel (see below).
 
 ### Allocate Elastic IP
 
@@ -231,6 +232,57 @@ cd /opt/bisl-deploy && sudo ./scripts/deploy-chaincode.sh
 - [ ] NestJS uses write key only on server (never in frontend)
 - [ ] Elastic IP attached
 - [ ] Snapshots / AMI backup of EC2 after healthy deploy
+
+---
+
+## Admin: Hyperledger Explorer (blocks / transactions)
+
+Explorer shows private Fabric blocks and transactions. It is **admin-only** and bound to **localhost:8080** (not public).
+
+### On EC2
+
+```bash
+cd /opt/bisl-deploy
+
+# 1) Change Explorer login password
+nano explorer/connection-profile/bisl-network.json
+# client.adminCredential.password = strong password
+
+# 2) Change DB password in explorer/.env
+nano explorer/.env
+
+# 3) Start Explorer
+sudo ./scripts/start-explorer.sh
+```
+
+### Access from your laptop (SSH tunnel — required)
+
+**Do not open Security Group port 8080 to the world.**
+
+```bash
+ssh -i your-key.pem -L 8080:127.0.0.1:8080 ubuntu@YOUR_EC2_IP
+```
+
+Keep the session open, then open on your laptop:
+
+```
+http://localhost:8080
+```
+
+Login with the credentials from `explorer/connection-profile/bisl-network.json`.
+
+| Who | Tool | Port |
+|-----|------|------|
+| Apps / NestJS | RPC | 443 → 4000 |
+| Admin only | Explorer via SSH tunnel | 8080 localhost |
+
+Stop Explorer:
+
+```bash
+cd /opt/bisl-deploy && sudo ./scripts/stop-explorer.sh
+```
+
+Full Explorer notes: `explorer/README.md` (in the deploy package).
 
 ---
 

@@ -6,6 +6,7 @@ bisl-deploy.tar.gz
 rest-api-javascript/node_modules/
 chaincode-javascript/node_modules/
 
-# Secrets
+# Secrets / local runtime
 rest-api-javascript/.env
 rest-api-javascript/wallet/
+explorer/.env

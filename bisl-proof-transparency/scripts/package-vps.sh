@@ -15,7 +15,7 @@ echo "    Source: ${ROOT}"
 echo "    Output: ${OUT}"
 
 rm -rf "${OUT}"
-mkdir -p "${OUT}"/{fabric,rpc,chaincode,scripts}
+mkdir -p "${OUT}"/{fabric,rpc,chaincode,scripts,explorer}
 
 # Fabric network essentials
 echo "==> Copying Fabric binaries and config"
@@ -44,13 +44,30 @@ rsync -a \
   "${ROOT}/bisl-proof-transparency/rest-api-javascript/" "${OUT}/rpc/"
 mkdir -p "${OUT}/rpc/wallet"
 
+# Hyperledger Explorer (admin-only)
+echo "==> Copying Explorer"
+rsync -a \
+  --exclude 'walletstore' \
+  "${ROOT}/bisl-proof-transparency/explorer/" "${OUT}/explorer/"
+# VPS crypto path relative to explorer/
+cat > "${OUT}/explorer/.env" <<'EOF'
+PORT=8080
+EXPLORER_CONFIG_FILE_PATH=./config.json
+EXPLORER_PROFILE_DIR_PATH=./connection-profile
+FABRIC_CRYPTO_PATH=../fabric/test-network/organizations
+EXPLORER_DB_PASSWORD=bisl-explorer-db-change-me
+EOF
+
 # Deploy scripts and docs
 echo "==> Copying deploy scripts"
 cp "${ROOT}/bisl-proof-transparency/scripts/install-vps.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/start-network.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/deploy-chaincode.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/start-rpc.sh" "${OUT}/scripts/"
+cp "${ROOT}/bisl-proof-transparency/scripts/start-explorer.sh" "${OUT}/scripts/"
+cp "${ROOT}/bisl-proof-transparency/scripts/stop-explorer.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/deploy/README-DEPLOY.md" "${OUT}/README-DEPLOY.md"
+cp "${ROOT}/bisl-proof-transparency/deploy/README-AWS.md" "${OUT}/README-AWS.md"
 cp "${ROOT}/bisl-proof-transparency/deploy/bisl-rpc.service" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/deploy/.env.production.example" "${OUT}/rpc/.env.example"
 
