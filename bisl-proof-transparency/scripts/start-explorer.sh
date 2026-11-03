@@ -66,11 +66,11 @@ if ! docker network inspect fabric_test >/dev/null 2>&1; then
 fi
 
 PROFILE="${EXPLORER_DIR}/connection-profile/bisl-network.json"
-if grep -q 'CHANGE_ME_strong_explorer_password' "${PROFILE}"; then
+if grep -q 'Bisl@Explorer2026!Admin#9kR' "${PROFILE}"; then
   echo ""
-  echo "WARNING: Explorer still uses the placeholder password."
-  echo "  Edit: ${PROFILE}"
-  echo "  Change client.adminCredential.password before production use."
+  echo "NOTE: Explorer is using the sample admin password."
+  echo "  Login: bisladmin / Bisl@Explorer2026!Admin#9kR"
+  echo "  Change it later in: ${PROFILE}"
   echo ""
 fi
 

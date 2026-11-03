@@ -55,7 +55,7 @@ PORT=8080
 EXPLORER_CONFIG_FILE_PATH=./config.json
 EXPLORER_PROFILE_DIR_PATH=./connection-profile
 FABRIC_CRYPTO_PATH=../fabric/test-network/organizations
-EXPLORER_DB_PASSWORD=bisl-explorer-db-change-me
+EXPLORER_DB_PASSWORD=Bisl@ExplorerDb2026!Pg#7mX
 EOF
 
 # Deploy scripts and docs

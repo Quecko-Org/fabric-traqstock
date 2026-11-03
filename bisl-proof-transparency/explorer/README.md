@@ -16,22 +16,22 @@ Private Fabric block/transaction viewer for **admins only**.
 docker network ls | grep fabric_test
 ```
 
-## 1. Set admin password
+## 1. Sample admin credentials (change later)
 
-Edit `connection-profile/bisl-network.json`:
+Default login (already set in `connection-profile/bisl-network.json`):
 
-```json
-"adminCredential": {
-  "id": "bisladmin",
-  "password": "YOUR_STRONG_PASSWORD"
-}
-```
+| Field | Sample value |
+|-------|----------------|
+| User | `bisladmin` |
+| Password | `Bisl@Explorer2026!Admin#9kR` |
 
-Also set a strong DB password in `.env`:
+Sample DB password in `.env.example`:
 
 ```bash
-EXPLORER_DB_PASSWORD=your-strong-db-password
+EXPLORER_DB_PASSWORD=Bisl@ExplorerDb2026!Pg#7mX
 ```
+
+Change both before long-term production use.
 
 ## 2. Start Explorer
 
@@ -65,9 +65,9 @@ Or use the helper:
 
 Open [http://localhost:8080](http://localhost:8080)
 
-Login:
-- User: `bisladmin` (or whatever you set)
-- Password: the password you set in the connection profile
+Login (sample — change later):
+- User: `bisladmin`
+- Password: `Bisl@Explorer2026!Admin#9kR`
 
 ### AWS / remote EC2 (SSH tunnel — recommended)
 
