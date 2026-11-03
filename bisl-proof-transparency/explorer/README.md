@@ -23,12 +23,12 @@ Default login (already set in `connection-profile/bisl-network.json`):
 | Field | Sample value |
 |-------|----------------|
 | User | `bisladmin` |
-| Password | `Bisl@Explorer2026!Admin#9kR` |
+| Password | `BislExp2026!Admin_9kRx` |
 
-Sample DB password in `.env.example`:
+Sample DB password in `.env.example` (no `#` — `#` starts comments in `.env`):
 
 ```bash
-EXPLORER_DB_PASSWORD=Bisl@ExplorerDb2026!Pg#7mX
+EXPLORER_DB_PASSWORD=BislExpDb2026!Pg_7mXq
 ```
 
 Change both before long-term production use.
@@ -67,7 +67,7 @@ Open [http://localhost:8080](http://localhost:8080)
 
 Login (sample — change later):
 - User: `bisladmin`
-- Password: `Bisl@Explorer2026!Admin#9kR`
+- Password: `BislExp2026!Admin_9kRx`
 
 ### AWS / remote EC2 (SSH tunnel — recommended)
 

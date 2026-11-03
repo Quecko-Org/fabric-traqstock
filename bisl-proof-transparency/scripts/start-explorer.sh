@@ -66,10 +66,10 @@ if ! docker network inspect fabric_test >/dev/null 2>&1; then
 fi
 
 PROFILE="${EXPLORER_DIR}/connection-profile/bisl-network.json"
-if grep -q 'Bisl@Explorer2026!Admin#9kR' "${PROFILE}"; then
+if grep -q 'BislExp2026!Admin_9kRx' "${PROFILE}"; then
   echo ""
   echo "NOTE: Explorer is using the sample admin password."
-  echo "  Login: bisladmin / Bisl@Explorer2026!Admin#9kR"
+  echo "  Login: bisladmin / BislExp2026!Admin_9kRx"
   echo "  Change it later in: ${PROFILE}"
   echo ""
 fi
