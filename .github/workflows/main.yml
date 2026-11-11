@@ -34,8 +34,13 @@ jobs:
         working-directory: ${{ env.BISL_OPT }}
         env:
           BISL_CRYPTO_PERSIST: /var/lib/bisl/organizations
+          BISL_FABRIC_CACHE: /var/lib/bisl/fabric
+          FABRIC_VERSION: "2.5.12"
+          CA_VERSION: "1.5.15"
         run: |
           chmod +x scripts/*.sh
+          # Linux binaries (repo may contain macOS arm64 — ignore those)
+          ./scripts/ensure-fabric-binaries.sh
           # Restore durable crypto into /opt live path (peer bind mounts)
           ./scripts/persist-crypto.sh restore || true
           # Start or recreate network if needed (handles wiped crypto)
@@ -43,6 +48,7 @@ jobs:
           # Always save after healthy up
           ./scripts/persist-crypto.sh save
           test -d fabric/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+          fabric/bin/peer version
 
       - name: Setup RPC wallet
         working-directory: ${{ env.BISL_OPT }}/rpc

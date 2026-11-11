@@ -23,6 +23,9 @@ peer_up() {
   docker ps --format '{{.Names}}' | grep -q '^peer0.org1.example.com$'
 }
 
+# Binaries must match this host (linux-amd64 on EC2; never use macOS bins from git)
+"${SCRIPT_DIR}/ensure-fabric-binaries.sh"
+
 cd "${TN}"
 export PATH="${FABRIC_DIR}/bin:${PATH}"
 export FABRIC_CFG_PATH="${FABRIC_DIR}/config"

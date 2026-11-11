@@ -33,8 +33,12 @@ echo "    To:   ${DST}"
 run_as_root mkdir -p "${DST}"
 
 # Preserve runtime secrets / crypto / wallet across syncs
+# Never sync host binaries from git (often macOS arm64). ensure-fabric-binaries.sh owns those.
 run_as_root rsync -a \
   --delete \
+  --exclude 'fabric/bin/' \
+  --exclude 'fabric/config/' \
+  --exclude 'fabric/test-network/bin/' \
   --exclude 'fabric/test-network/organizations/' \
   --exclude 'fabric/test-network/channel-artifacts/' \
   --exclude 'rpc/wallet/' \
