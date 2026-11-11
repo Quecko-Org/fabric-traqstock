@@ -2,15 +2,30 @@ name: Deploy BISL
 
 on:
   push:
-    branches: [ main ]      # or whatever your deploy branch is
-  workflow_dispatch:         # lets you trigger manually from the UI
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
-    runs-on: self-hosted     # targets your EC2 runner
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore Fabric crypto if wiped
+        working-directory: bisl-deploy
+        run: |
+          chmod +x scripts/*.sh
+          # Prefer durable copy outside Actions workspace
+          ./scripts/persist-crypto.sh restore || true
+          test -d fabric/test-network/organizations/peerOrganizations \
+            || { echo "organizations/ missing — cannot deploy without crypto"; exit 1; }
+
+      - name: Setup RPC wallet
+        working-directory: bisl-deploy/rpc
+        run: |
+          npm install --omit=dev
+          FABRIC_ROOT=../fabric npm run setup:wallet
 
       - name: Deploy chaincode
         working-directory: bisl-deploy
@@ -18,6 +33,12 @@ jobs:
           chmod +x scripts/*.sh
           ./scripts/deploy-chaincode.sh
 
+      - name: Persist crypto after deploy
+        working-directory: bisl-deploy
+        run: ./scripts/persist-crypto.sh save || true
+
       - name: Restart RPC
         run: |
-          sudo systemctl restart bisl-rpc
+          sudo systemctl restart bisl-rpc || true
+          sleep 2
+          curl -sf http://127.0.0.1:4000/health || echo "RPC health check failed — check systemctl status bisl-rpc"
