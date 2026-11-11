@@ -9,6 +9,10 @@ on:
       - ".github/workflows/main.yml"
   workflow_dispatch:
 
+env:
+  BISL_OPT: /opt/bisl-deploy
+  BISL_CRYPTO_PERSIST: /var/lib/bisl/organizations
+
 jobs:
   deploy:
     runs-on: self-hosted
@@ -16,33 +20,75 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Restore Fabric crypto if wiped
-        working-directory: bisl-deploy
+      - name: Ensure durable dirs
+        run: |
+          sudo mkdir -p /var/lib/bisl/organizations "${BISL_OPT}"
+          sudo chown -R "$USER:$USER" /var/lib/bisl "${BISL_OPT}" || true
+
+      - name: Sync code to /opt/bisl-deploy (keep crypto/wallet/env)
+        run: |
+          chmod +x bisl-deploy/scripts/*.sh
+          ./bisl-deploy/scripts/sync-to-opt.sh "$(pwd)/bisl-deploy" "${BISL_OPT}"
+
+      - name: Ensure Fabric network + crypto
+        working-directory: ${{ env.BISL_OPT }}
+        env:
+          BISL_CRYPTO_PERSIST: /var/lib/bisl/organizations
         run: |
           chmod +x scripts/*.sh
-          # Prefer durable copy outside Actions workspace
+          # Restore durable crypto into /opt live path (peer bind mounts)
           ./scripts/persist-crypto.sh restore || true
-          test -d fabric/test-network/organizations/peerOrganizations \
-            || { echo "organizations/ missing — cannot deploy without crypto"; exit 1; }
+          # Start or recreate network if needed (handles wiped crypto)
+          ./scripts/start-network.sh
+          # Always save after healthy up
+          ./scripts/persist-crypto.sh save
+          test -d fabric/test-network/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
 
       - name: Setup RPC wallet
-        working-directory: bisl-deploy/rpc
+        working-directory: ${{ env.BISL_OPT }}/rpc
         run: |
           npm install --omit=dev
-          FABRIC_ROOT=../fabric npm run setup:wallet
+          FABRIC_ROOT=${{ env.BISL_OPT }}/fabric npm run setup:wallet
+          test -f wallet/appUserOrg1.id
 
       - name: Deploy chaincode
-        working-directory: bisl-deploy
-        run: |
-          chmod +x scripts/*.sh
-          ./scripts/deploy-chaincode.sh
+        working-directory: ${{ env.BISL_OPT }}
+        run: ./scripts/deploy-chaincode.sh
 
-      - name: Persist crypto after deploy
-        working-directory: bisl-deploy
-        run: ./scripts/persist-crypto.sh save || true
+      - name: Persist crypto again
+        working-directory: ${{ env.BISL_OPT }}
+        env:
+          BISL_CRYPTO_PERSIST: /var/lib/bisl/organizations
+        run: ./scripts/persist-crypto.sh save
 
-      - name: Restart RPC
+      - name: Ensure systemd unit + restart RPC
         run: |
-          sudo systemctl restart bisl-rpc || true
-          sleep 2
-          curl -sf http://127.0.0.1:4000/health || echo "RPC health check failed — check systemctl status bisl-rpc"
+          if [[ ! -f /etc/systemd/system/bisl-rpc.service ]]; then
+            sudo cp "${BISL_OPT}/scripts/bisl-rpc.service" /etc/systemd/system/bisl-rpc.service
+            sudo systemctl daemon-reload
+            sudo systemctl enable bisl-rpc
+          fi
+          # Keep API keys if .env already exists; otherwise seed from example
+          if [[ ! -f "${BISL_OPT}/rpc/.env" ]]; then
+            if [[ -f "${BISL_OPT}/rpc/.env.example" ]]; then
+              cp "${BISL_OPT}/rpc/.env.example" "${BISL_OPT}/rpc/.env"
+            else
+              cp "${BISL_OPT}/rpc/.env.vps" "${BISL_OPT}/rpc/.env"
+            fi
+            WRITE_KEY=$(openssl rand -hex 32)
+            READ_KEY=$(openssl rand -hex 32)
+            if grep -q 'change-me-write-key' "${BISL_OPT}/rpc/.env"; then
+              sed -i "s/change-me-write-key/${WRITE_KEY}/" "${BISL_OPT}/rpc/.env"
+              sed -i "s/change-me-read-key/${READ_KEY}/" "${BISL_OPT}/rpc/.env"
+            else
+              {
+                echo "WRITE_API_KEY=${WRITE_KEY}"
+                echo "READ_API_KEY=${READ_KEY}"
+                echo "REQUIRE_AUTH=true"
+              } >> "${BISL_OPT}/rpc/.env"
+            fi
+            echo "Generated new API keys in ${BISL_OPT}/rpc/.env"
+          fi
+          sudo systemctl restart bisl-rpc
+          sleep 3
+          curl -sf http://127.0.0.1:4000/health

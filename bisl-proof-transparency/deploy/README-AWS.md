@@ -77,8 +77,15 @@ ssh -i ~/Downloads/your-key.pem ubuntu@YOUR_EC2_IP
 
 ## 4. Install on EC2
 
-**Important:** install under a stable path such as `/opt/bisl-deploy`.  
-Do **not** run production Fabric from a GitHub Actions `_work/...` checkout — workspace cleans delete `organizations/` while containers keep running, which breaks Explorer and any peer restart.
+**Important (permanent layout):**
+
+| Path | Role |
+|------|------|
+| `/opt/bisl-deploy` | Live deploy (peers bind-mount crypto here) |
+| `/var/lib/bisl/organizations` | Durable crypto backup (survives Actions cleans) |
+
+GitHub Actions **Deploy BISL** syncs code into `/opt/bisl-deploy` and never relies on the ephemeral `_work/...` checkout for Fabric.  
+Do **not** run production peers only from Actions `_work` — that path gets wiped every job.
 
 ```bash
 sudo mkdir -p /opt
