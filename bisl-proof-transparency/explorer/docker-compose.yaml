@@ -1,5 +1,6 @@
-# Hyperledger Explorer for BISL (admin-only)
-# Bind to localhost only — use SSH tunnel on AWS. Do not expose 8080 publicly.
+# Hyperledger Explorer for BISL
+# Default: public host bind on 8080 (open EC2 Security Group TCP 8080 to reach it).
+# For localhost-only: set EXPLORER_BIND=127.0.0.1 before start-explorer.sh
 
 volumes:
   pgdata:
@@ -50,9 +51,8 @@ services:
       - ${EXPLORER_PROFILE_DIR_PATH:-./connection-profile}:/opt/explorer/app/platform/fabric/connection-profile
       - ${FABRIC_CRYPTO_PATH}:/tmp/crypto
       - walletstore:/opt/explorer/wallet
-    # Localhost only — admin accesses via SSH tunnel
     ports:
-      - "127.0.0.1:8080:8080"
+      - "${EXPLORER_BIND:-0.0.0.0}:8080:8080"
     depends_on:
       explorerdb.bisl:
         condition: service_healthy

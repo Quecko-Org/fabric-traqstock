@@ -1,0 +1,61 @@
+# Hyperledger Explorer for BISL
+# Default: public host bind on 8080 (open EC2 Security Group TCP 8080 to reach it).
+# For localhost-only: set EXPLORER_BIND=127.0.0.1 before start-explorer.sh
+
+volumes:
+  pgdata:
+  walletstore:
+
+networks:
+  test:
+    name: fabric_test
+    external: true
+
+services:
+  explorerdb.bisl:
+    image: ghcr.io/hyperledger-labs/explorer-db:latest
+    container_name: explorerdb.bisl
+    hostname: explorerdb.bisl
+    environment:
+      - DATABASE_DATABASE=fabricexplorer
+      - DATABASE_USERNAME=hppoc
+      - DATABASE_PASSWORD=${EXPLORER_DB_PASSWORD:-bisl-explorer-db-change-me}
+    healthcheck:
+      test: "pg_isready -h localhost -p 5432 -q -U postgres"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - test
+    restart: unless-stopped
+
+  explorer.bisl:
+    image: ghcr.io/hyperledger-labs/explorer:latest
+    container_name: explorer.bisl
+    hostname: explorer.bisl
+    environment:
+      - DATABASE_HOST=explorerdb.bisl
+      - DATABASE_DATABASE=fabricexplorer
+      - DATABASE_USERNAME=hppoc
+      - DATABASE_PASSWD=${EXPLORER_DB_PASSWORD:-bisl-explorer-db-change-me}
+      - LOG_LEVEL_APP=info
+      - LOG_LEVEL_DB=info
+      - LOG_LEVEL_CONSOLE=info
+      - LOG_CONSOLE_STDOUT=true
+      - DISCOVERY_AS_LOCALHOST=false
+      - PORT=8080
+    volumes:
+      - ${EXPLORER_CONFIG_FILE_PATH:-./config.json}:/opt/explorer/app/platform/fabric/config.json
+      - ${EXPLORER_PROFILE_DIR_PATH:-./connection-profile}:/opt/explorer/app/platform/fabric/connection-profile
+      - ${FABRIC_CRYPTO_PATH}:/tmp/crypto
+      - walletstore:/opt/explorer/wallet
+    ports:
+      - "${EXPLORER_BIND:-0.0.0.0}:8080:8080"
+    depends_on:
+      explorerdb.bisl:
+        condition: service_healthy
+    networks:
+      - test
+    restart: unless-stopped

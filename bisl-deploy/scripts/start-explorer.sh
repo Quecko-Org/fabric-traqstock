@@ -99,15 +99,14 @@ if grep -q 'BislExp2026!Admin_9kRx' "${PROFILE}"; then
   echo ""
 fi
 
-echo "Starting Explorer (bound to 127.0.0.1:8080)..."
+export EXPLORER_BIND="${EXPLORER_BIND:-0.0.0.0}"
+echo "Starting Explorer (bound to ${EXPLORER_BIND}:8080)..."
 echo "  FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}"
 docker compose up -d
 
 echo ""
 echo "Explorer is up."
-echo "  Local:   http://localhost:8080"
-echo "  Login:   see connection-profile/bisl-network.json (adminCredential)"
-echo ""
-echo "AWS SSH tunnel (from your laptop):"
-echo "  ssh -i your-key.pem -L 8080:127.0.0.1:8080 ubuntu@YOUR_EC2_IP"
-echo "  then open http://localhost:8080"
+echo "  Local:    http://localhost:8080"
+echo "  Public:   http://YOUR_EC2_IP:8080  (Security Group must allow TCP 8080)"
+echo "  Login:    see connection-profile/bisl-network.json (adminCredential)"
+echo "  Localhost-only mode: EXPLORER_BIND=127.0.0.1 ./scripts/start-explorer.sh"
