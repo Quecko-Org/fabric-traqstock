@@ -6,21 +6,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib-paths.sh
+source "${SCRIPT_DIR}/lib-paths.sh"
+bisl_resolve_paths "${SCRIPT_DIR}"
 
-if [[ -d "${SCRIPT_DIR}/../explorer" && -f "${SCRIPT_DIR}/../explorer/docker-compose.yaml" ]]; then
-  # bisl-proof-transparency/scripts → explorer
-  # or bisl-deploy/scripts → explorer
-  EXPLORER_DIR="$(cd "${SCRIPT_DIR}/../explorer" && pwd)"
-elif [[ -d "${SCRIPT_DIR}/../../bisl-proof-transparency/explorer" ]]; then
-  EXPLORER_DIR="$(cd "${SCRIPT_DIR}/../../bisl-proof-transparency/explorer" && pwd)"
-else
-  echo "Explorer folder not found"
-  exit 1
-fi
-
+EXPLORER_DIR="${BISL_EXPLORER_DIR}"
 cd "${EXPLORER_DIR}"
 
-# Resolve crypto path
 if [[ -f .env ]]; then
   set -a
   # shellcheck disable=SC1091
@@ -28,15 +20,27 @@ if [[ -f .env ]]; then
   set +a
 fi
 
-if [[ -z "${FABRIC_CRYPTO_PATH:-}" ]]; then
-  if [[ -d "${EXPLORER_DIR}/../fabric/test-network/organizations" ]]; then
-    FABRIC_CRYPTO_PATH="${EXPLORER_DIR}/../fabric/test-network/organizations"
-  elif [[ -d "${EXPLORER_DIR}/../../test-network/organizations" ]]; then
-    FABRIC_CRYPTO_PATH="${EXPLORER_DIR}/../../test-network/organizations"
+# Prefer durable crypto if live path was wiped by CI
+if [[ -z "${FABRIC_CRYPTO_PATH:-}" ]] || [[ ! -d "${FABRIC_CRYPTO_PATH}/peerOrganizations" ]]; then
+  if [[ -d "${BISL_CRYPTO_LIVE}/peerOrganizations" ]]; then
+    FABRIC_CRYPTO_PATH="${BISL_CRYPTO_LIVE}"
+  elif [[ -d "${HOME}/.bisl/organizations/peerOrganizations" ]]; then
+    FABRIC_CRYPTO_PATH="${HOME}/.bisl/organizations"
+  elif [[ -d /var/lib/bisl/organizations/peerOrganizations ]]; then
+    FABRIC_CRYPTO_PATH=/var/lib/bisl/organizations
   else
     echo "FABRIC_CRYPTO_PATH not set and organizations/ not found"
-    echo "Start Fabric first, then set FABRIC_CRYPTO_PATH in explorer/.env"
+    echo "Try: ./scripts/persist-crypto.sh restore"
+    echo "Or start Fabric first, then set FABRIC_CRYPTO_PATH in explorer/.env"
     exit 1
+  fi
+fi
+
+# If live path empty but durable exists, restore now
+if [[ ! -d "${BISL_CRYPTO_LIVE}/peerOrganizations" ]]; then
+  "${SCRIPT_DIR}/persist-crypto.sh" restore || true
+  if [[ -d "${BISL_CRYPTO_LIVE}/peerOrganizations" ]]; then
+    FABRIC_CRYPTO_PATH="${BISL_CRYPTO_LIVE}"
   fi
 fi
 
@@ -51,7 +55,10 @@ if [[ ! -d "${KEYSTORE_DIR}" ]]; then
 fi
 
 # Fabric CA creates a random key filename; Explorer expects a stable path (priv_sk)
-PRIV_KEY="$(find "${KEYSTORE_DIR}" -type f | head -n 1 || true)"
+PRIV_KEY="$(find "${KEYSTORE_DIR}" -type f ! -name 'priv_sk' | head -n 1 || true)"
+if [[ -z "${PRIV_KEY}" ]]; then
+  PRIV_KEY="$(find "${KEYSTORE_DIR}" -type f | head -n 1 || true)"
+fi
 if [[ -z "${PRIV_KEY}" ]]; then
   echo "No private key in ${KEYSTORE_DIR}"
   exit 1
@@ -65,6 +72,24 @@ if ! docker network inspect fabric_test >/dev/null 2>&1; then
   exit 1
 fi
 
+# Ensure .env has absolute crypto path for compose
+if [[ -f .env ]]; then
+  if grep -q '^FABRIC_CRYPTO_PATH=' .env; then
+    sed -i.bak "s|^FABRIC_CRYPTO_PATH=.*|FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}|" .env
+    rm -f .env.bak
+  else
+    echo "FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}" >> .env
+  fi
+else
+  cat > .env <<EOF
+PORT=8080
+EXPLORER_CONFIG_FILE_PATH=./config.json
+EXPLORER_PROFILE_DIR_PATH=./connection-profile
+FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}
+EXPLORER_DB_PASSWORD=BislExpDb2026!Pg_7mXq
+EOF
+fi
+
 PROFILE="${EXPLORER_DIR}/connection-profile/bisl-network.json"
 if grep -q 'BislExp2026!Admin_9kRx' "${PROFILE}"; then
   echo ""
@@ -75,6 +100,7 @@ if grep -q 'BislExp2026!Admin_9kRx' "${PROFILE}"; then
 fi
 
 echo "Starting Explorer (bound to 127.0.0.1:8080)..."
+echo "  FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}"
 docker compose up -d
 
 echo ""

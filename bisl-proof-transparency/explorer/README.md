@@ -10,10 +10,17 @@ Private Fabric block/transaction viewer for **admins only**.
 
 1. Fabric test-network is running (`fabric_test` Docker network exists)
 2. Channel `mychannel` exists
-3. Crypto material exists under `test-network/organizations`
+3. Crypto material exists under `test-network/organizations` (or restored from `/var/lib/bisl/organizations` on VPS)
 
 ```bash
 docker network ls | grep fabric_test
+```
+
+On AWS, if `organizations/` is missing after a CI checkout clean:
+
+```bash
+sudo ./scripts/persist-crypto.sh restore
+sudo ./scripts/start-explorer.sh
 ```
 
 ## 1. Sample admin credentials (change later)

@@ -60,6 +60,8 @@ EOF
 
 # Deploy scripts and docs
 echo "==> Copying deploy scripts"
+cp "${ROOT}/bisl-proof-transparency/scripts/lib-paths.sh" "${OUT}/scripts/"
+cp "${ROOT}/bisl-proof-transparency/scripts/persist-crypto.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/install-vps.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/start-network.sh" "${OUT}/scripts/"
 cp "${ROOT}/bisl-proof-transparency/scripts/deploy-chaincode.sh" "${OUT}/scripts/"

@@ -9,11 +9,16 @@ bisl-deploy/
 ├── fabric/           # bin, config, test-network (peers + orderer)
 ├── chaincode/        # bislcc JavaScript chaincode
 ├── rpc/              # Secured Proof Transparency API
+├── explorer/         # Hyperledger Explorer (admin-only, localhost)
 ├── scripts/          # install, start, deploy helpers
 └── README-DEPLOY.md
 ```
 
 **Excluded:** all other fabric-samples demos, legacy Go chaincode, node_modules.
+
+## AWS
+
+For Amazon EC2 step-by-step (security group, Elastic IP, HTTPS, NestJS, Explorer SSH tunnel), see **[README-AWS.md](./README-AWS.md)**.
 
 ## VPS requirements
 
@@ -36,7 +41,7 @@ chmod +x bisl-proof-transparency/scripts/*.sh
 
 Creates:
 - `bisl-deploy/` folder
-- `bisl-deploy.tar.gz` archive (~15–30 MB without Docker images)
+- `bisl-deploy.tar.gz` archive
 
 ## 2. Upload to VPS
 
@@ -57,10 +62,13 @@ sudo ./scripts/install-vps.sh
 
 This will:
 1. Install Docker + Node.js 20 (if missing)
-2. Start Fabric test-network
-3. Deploy `bislcc` chaincode
-4. Setup wallet + generate API keys
-5. Initialize RBAC
+2. Start Fabric test-network (skips teardown if peers already up)
+3. Persist crypto to `/var/lib/bisl/organizations` (survives CI workspace cleans)
+4. Deploy `bislcc` chaincode
+5. Setup wallet + generate API keys
+6. Initialize RBAC
+
+**Do not** run production from GitHub Actions `_work/...` alone — keep a durable copy under `/opt/bisl-deploy` and never delete `/var/lib/bisl/organizations` while peers are running.
 
 ## 4. Start RPC
 
@@ -113,6 +121,20 @@ server {
 }
 ```
 
+## Admin Explorer (blocks / transactions)
+
+```bash
+# After Fabric is running — change password first!
+# Edit explorer/connection-profile/bisl-network.json (adminCredential.password)
+
+./scripts/start-explorer.sh
+
+# Local: open http://localhost:8080
+# AWS: SSH tunnel only (see README-AWS.md) — do NOT open port 8080 publicly
+
+./scripts/stop-explorer.sh
+```
+
 ## Environment variables
 
 | Variable | Default | Description |
@@ -153,6 +175,7 @@ Copy `connection-org1.json` and wallet identity from the Fabric server after `ne
 
 - [ ] Strong `WRITE_API_KEY` / `READ_API_KEY` in `rpc/.env`
 - [ ] HTTPS via reverse proxy
-- [ ] Firewall: expose only 443, block Fabric ports from public internet
+- [ ] Firewall: expose only 443, close Fabric ports from public internet
 - [ ] Never commit `rpc/.env` or `wallet/` to git
 - [ ] Give write key only to your backend (NestJS)
+- [ ] Explorer password changed; port 8080 not public (SSH tunnel on AWS)

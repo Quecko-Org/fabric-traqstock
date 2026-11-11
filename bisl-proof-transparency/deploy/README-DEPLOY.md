@@ -62,10 +62,13 @@ sudo ./scripts/install-vps.sh
 
 This will:
 1. Install Docker + Node.js 20 (if missing)
-2. Start Fabric test-network
-3. Deploy `bislcc` chaincode
-4. Setup wallet + generate API keys
-5. Initialize RBAC
+2. Start Fabric test-network (skips teardown if peers already up)
+3. Persist crypto to `/var/lib/bisl/organizations` (survives CI workspace cleans)
+4. Deploy `bislcc` chaincode
+5. Setup wallet + generate API keys
+6. Initialize RBAC
+
+**Do not** run production from GitHub Actions `_work/...` alone — keep a durable copy under `/opt/bisl-deploy` and never delete `/var/lib/bisl/organizations` while peers are running.
 
 ## 4. Start RPC
 

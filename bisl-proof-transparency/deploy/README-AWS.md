@@ -77,6 +77,9 @@ ssh -i ~/Downloads/your-key.pem ubuntu@YOUR_EC2_IP
 
 ## 4. Install on EC2
 
+**Important:** install under a stable path such as `/opt/bisl-deploy`.  
+Do **not** run production Fabric from a GitHub Actions `_work/...` checkout — workspace cleans delete `organizations/` while containers keep running, which breaks Explorer and any peer restart.
+
 ```bash
 sudo mkdir -p /opt
 sudo mv ~/bisl-deploy.tar.gz /opt/
@@ -87,9 +90,21 @@ sudo chmod +x scripts/*.sh
 sudo ./scripts/install-vps.sh
 ```
 
-This installs Docker + Node 20, starts Fabric, deploys `bislcc`, creates wallet, generates API keys.
+This installs Docker + Node 20, starts Fabric, deploys `bislcc`, creates wallet, generates API keys, and **persists crypto** to `/var/lib/bisl/organizations` (survives redeploys / CI cleans).
 
 **Save the printed keys** (`WRITE_API_KEY`, `READ_API_KEY`) from `rpc/.env`.
+
+### Safe re-deploy / CI update
+
+`install-vps.sh` and `start-network.sh` **skip** `network.sh down` when peers are already up. Before updating code:
+
+```bash
+# crypto is restored from /var/lib/bisl/organizations if the workspace wiped it
+sudo ./scripts/persist-crypto.sh restore
+sudo ./scripts/install-vps.sh   # updates deps / chaincode; keeps running network
+```
+
+Never delete `/var/lib/bisl/organizations` while peers are running.
 
 ---
 

@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEPLOY_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FABRIC_DIR="${DEPLOY_ROOT}/fabric"
-CHAINCODE_DIR="${DEPLOY_ROOT}/chaincode"
-TN="${FABRIC_DIR}/test-network"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=lib-paths.sh
+source "${SCRIPT_DIR}/lib-paths.sh"
+bisl_resolve_paths "${SCRIPT_DIR}"
+
+FABRIC_DIR="${BISL_FABRIC_DIR}"
+CHAINCODE_DIR="${BISL_CHAINCODE_DIR}"
+TN="${BISL_TEST_NETWORK}"
 
 cd "${TN}"
 export PATH="${FABRIC_DIR}/bin:${PATH}"
