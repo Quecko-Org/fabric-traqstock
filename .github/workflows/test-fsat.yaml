@@ -2,11 +2,9 @@ name: Full Stack Asset Transfer Guide 🚀
 run-name: ${{ github.actor }} is testing the Full Stack Asset Transfer Guide 🚀
 
 on:
+  # Disabled automatic runs on this Quecko BISL fork.
+  # Upstream Hyperledger sample tests — run manually if needed.
   workflow_dispatch:
-  pull_request:
-    branches:
-      - "main"
-      - "release-2.5"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

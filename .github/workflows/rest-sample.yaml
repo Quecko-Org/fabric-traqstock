@@ -8,13 +8,9 @@ env:
   NODE_VER: "lts/*"
 
 on:
+  # Disabled automatic runs on this Quecko BISL fork.
+  # Upstream Hyperledger sample tests — run manually if needed.
   workflow_dispatch:
-  push:
-    branches: ["main", "release-2.5"]
-    paths: ["asset-transfer-basic/rest-api-typescript/**"]
-  pull_request:
-    branches: ["main", "release-2.5"]
-    paths: ["asset-transfer-basic/rest-api-typescript/**"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

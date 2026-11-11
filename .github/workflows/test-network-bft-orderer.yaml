@@ -5,11 +5,9 @@ name: Test Network BFT Orderer 🍟
 run-name: ${{ github.actor }} is running the Test Network with BFT Orderer tests 🍟
 
 on:
+  # Disabled automatic runs on this Quecko BISL fork.
+  # Upstream Hyperledger sample tests — run manually if needed.
   workflow_dispatch:
-  push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

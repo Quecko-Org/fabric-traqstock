@@ -5,11 +5,9 @@ name: Kubernetes Test Network 🍒
 run-name: ${{ github.actor }} is testing the Kubernetes Test Network 🍒
 
 on:
+  # Disabled automatic runs on this Quecko BISL fork.
+  # Upstream Hyperledger sample tests — run manually if needed.
   workflow_dispatch:
-  push:
-    branches: [ "main", "release-2.5" ]
-  pull_request:
-    branches: [ "main", "release-2.5" ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}

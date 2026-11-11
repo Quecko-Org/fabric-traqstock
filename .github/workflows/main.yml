@@ -3,6 +3,10 @@ name: Deploy BISL
 on:
   push:
     branches: [ main ]
+    paths:
+      - "bisl-deploy/**"
+      - "bisl-proof-transparency/**"
+      - ".github/workflows/main.yml"
   workflow_dispatch:
 
 jobs:
