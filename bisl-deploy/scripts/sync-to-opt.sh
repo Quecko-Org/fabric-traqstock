@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# Sync checkout bisl-deploy → durable /opt/bisl-deploy WITHOUT wiping crypto, wallet, or .env.
-# Run on the EC2 self-hosted runner before deploy.
+# Sync checkout bisl-deploy → /opt/bisl-deploy.
+# Preserves crypto, wallet, .env, and host-native fabric binaries.
 #
 set -euo pipefail
 
@@ -18,24 +18,25 @@ if [[ ! -d "${SRC}/fabric/test-network" ]]; then
   exit 1
 fi
 
-run_as_root() {
-  if [[ "$(id -u)" -eq 0 ]]; then
-    "$@"
-  else
-    sudo "$@"
-  fi
-}
+SUDO=()
+if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
+  SUDO=(sudo)
+fi
 
 echo "==> Syncing deploy code"
 echo "    From: ${SRC}"
 echo "    To:   ${DST}"
 
-run_as_root mkdir -p "${DST}"
+"${SUDO[@]}" mkdir -p "${DST}"
 
-# Preserve runtime secrets / crypto / wallet across syncs
-# Never sync host binaries from git (often macOS arm64). ensure-fabric-binaries.sh owns those.
-run_as_root rsync -a \
-  --delete \
+RSYNC=(rsync -a --delete)
+if ! command -v rsync >/dev/null 2>&1; then
+  echo "ERROR: rsync is required on the runner (sudo apt-get install -y rsync)" >&2
+  exit 1
+fi
+
+# Do not overwrite runtime/host-managed paths
+"${SUDO[@]}" "${RSYNC[@]}" \
   --exclude 'fabric/bin/' \
   --exclude 'fabric/config/' \
   --exclude 'fabric/test-network/bin/' \
@@ -48,13 +49,9 @@ run_as_root rsync -a \
   --exclude 'chaincode/node_modules/' \
   "${SRC}/" "${DST}/"
 
-run_as_root chmod +x "${DST}/scripts/"*.sh
-# Runner user needs write for wallet setup / compose
-run_as_root chown -R "$(id -u):$(id -g)" \
-  "${DST}/rpc" \
-  "${DST}/scripts" \
-  "${DST}/explorer" \
-  "${DST}/chaincode" \
-  "${DST}/fabric/test-network" 2>/dev/null || true
+"${SUDO[@]}" chmod +x "${DST}/scripts/"*.sh || true
+# Runner must own the tree for wallet setup / network scripts
+"${SUDO[@]}" chown -R "$(id -u):$(id -g)" "${DST}"
 
 echo "Synced to ${DST}"
+ls -la "${DST}/scripts" | head

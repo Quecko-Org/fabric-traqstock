@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 #
-# Ensure Fabric peer/configtxgen/etc binaries work on THIS machine.
-# Repo may contain macOS arm64 binaries; EC2 needs linux-amd64.
-# Caches downloads under /var/lib/bisl/fabric so CI does not re-download every run.
+# Ensure Fabric binaries work on THIS host (linux-amd64 on EC2).
+# Cache: /var/lib/bisl/fabric
 #
 set -euo pipefail
 
@@ -16,121 +15,118 @@ FABRIC_VERSION="${FABRIC_VERSION:-2.5.12}"
 CA_VERSION="${CA_VERSION:-1.5.15}"
 CACHE_ROOT="${BISL_FABRIC_CACHE:-/var/lib/bisl/fabric}"
 
-run_as_root() {
-  if [[ "$(id -u)" -eq 0 ]]; then
-    "$@"
-  elif command -v sudo >/dev/null 2>&1; then
-    sudo "$@"
-  else
-    "$@"
+SUDO=()
+if [[ "$(id -u)" -ne 0 ]]; then
+  if command -v sudo >/dev/null 2>&1; then
+    SUDO=(sudo)
   fi
-}
-
-# Replace symlink or non-dir with a real empty directory.
-ensure_real_dir() {
-  local d="$1"
-  if [[ -L "${d}" ]]; then
-    echo "Removing symlink: ${d}"
-    rm -f "${d}"
-  elif [[ -e "${d}" && ! -d "${d}" ]]; then
-    echo "Removing non-directory: ${d}"
-    rm -f "${d}"
-  fi
-  if [[ ! -d "${d}" ]]; then
-    mkdir -p "${d}"
-  fi
-  if [[ ! -d "${d}" ]]; then
-    echo "Failed to create directory: ${d}" >&2
-    exit 1
-  fi
-}
+fi
 
 os_name="$(uname -s | tr '[:upper:]' '[:lower:]')"
-arch_raw="$(uname -m)"
-case "${arch_raw}" in
+case "$(uname -m)" in
   x86_64|amd64) arch="amd64" ;;
   aarch64|arm64) arch="arm64" ;;
-  *)
-    echo "Unsupported arch: ${arch_raw}" >&2
-    exit 1
-    ;;
+  *) echo "Unsupported arch: $(uname -m)" >&2; exit 1 ;;
 esac
 
 peer_ok() {
-  local peer_bin="$1"
-  [[ -x "${peer_bin}" ]] || return 1
-  "${peer_bin}" version >/dev/null 2>&1
+  local b="$1"
+  [[ -e "${b}" ]] || return 1
+  # Wrong-arch binaries return 126/127; treat as not ok
+  "${b}" version >/dev/null 2>&1
 }
 
 config_ok() {
   [[ -f "${FABRIC_DIR}/config/core.yaml" ]]
 }
 
-install_from_cache_or_download() {
-  local cache_bin="${CACHE_ROOT}/bin"
-  local cache_cfg="${CACHE_ROOT}/config"
-
-  run_as_root mkdir -p "${CACHE_ROOT}"
-  run_as_root chown -R "$(id -u):$(id -g)" "${CACHE_ROOT}" 2>/dev/null || true
-  ensure_real_dir "${cache_bin}"
-  ensure_real_dir "${cache_cfg}"
-
-  if ! peer_ok "${cache_bin}/peer" || [[ ! -f "${cache_cfg}/core.yaml" ]]; then
-    echo "==> Downloading Fabric ${FABRIC_VERSION} + CA ${CA_VERSION} for ${os_name}-${arch}"
-    local tmp
-    tmp="$(mktemp -d)"
-    cleanup() { rm -rf "${tmp}"; }
-    trap cleanup EXIT
-
-    curl -fsSL \
-      "https://github.com/hyperledger/fabric/releases/download/v${FABRIC_VERSION}/hyperledger-fabric-${os_name}-${arch}-${FABRIC_VERSION}.tar.gz" \
-      | tar -xz -C "${tmp}"
-
-    curl -fsSL \
-      "https://github.com/hyperledger/fabric-ca/releases/download/v${CA_VERSION}/hyperledger-fabric-ca-${os_name}-${arch}-${CA_VERSION}.tar.gz" \
-      | tar -xz -C "${tmp}"
-
-    if [[ ! -d "${tmp}/bin" || ! -d "${tmp}/config" ]]; then
-      echo "Unexpected archive layout in ${tmp}:" >&2
-      ls -la "${tmp}" >&2
-      exit 1
-    fi
-
-    rsync -a "${tmp}/bin/" "${cache_bin}/"
-    rsync -a "${tmp}/config/" "${cache_cfg}/"
-    chmod +x "${cache_bin}/"* || true
-    trap - EXIT
-    rm -rf "${tmp}"
-    echo "Cached Fabric binaries at ${CACHE_ROOT}"
-  else
-    echo "Using cached Fabric binaries at ${CACHE_ROOT}"
+# Force path to be a real directory owned by current user.
+force_dir() {
+  local d="$1"
+  "${SUDO[@]}" mkdir -p "$(dirname "${d}")"
+  if [[ -L "${d}" ]]; then
+    echo "Removing symlink ${d} -> $(readlink "${d}" || true)"
+    "${SUDO[@]}" rm -f "${d}"
+  elif [[ -e "${d}" && ! -d "${d}" ]]; then
+    echo "Removing non-dir ${d}"
+    "${SUDO[@]}" rm -f "${d}"
   fi
-
-  echo "==> Installing binaries into ${FABRIC_DIR}"
-  ensure_real_dir "${FABRIC_DIR}"
-  ensure_real_dir "${FABRIC_DIR}/bin"
-  ensure_real_dir "${FABRIC_DIR}/config"
-  ensure_real_dir "${BISL_TEST_NETWORK}/bin"
-
-  rsync -a "${cache_bin}/" "${FABRIC_DIR}/bin/"
-  rsync -a "${cache_cfg}/" "${FABRIC_DIR}/config/"
-  rsync -a "${cache_bin}/" "${BISL_TEST_NETWORK}/bin/"
-  chmod +x "${FABRIC_DIR}/bin/"* "${BISL_TEST_NETWORK}/bin/"* || true
+  "${SUDO[@]}" mkdir -p "${d}"
+  "${SUDO[@]}" chown -R "$(id -u):$(id -g)" "${d}" 2>/dev/null || true
 }
 
-echo "==> Checking Fabric binaries (${os_name}/${arch})"
+copy_tree() {
+  local src="$1"
+  local dst="$2"
+  force_dir "${dst}"
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a "${src}/" "${dst}/"
+  else
+    "${SUDO[@]}" cp -a "${src}/." "${dst}/"
+    "${SUDO[@]}" chown -R "$(id -u):$(id -g)" "${dst}" 2>/dev/null || true
+  fi
+}
+
+echo "==> Checking Fabric binaries (${os_name}/${arch}) in ${FABRIC_DIR}"
+
 if peer_ok "${FABRIC_DIR}/bin/peer" && config_ok; then
   echo "Fabric binaries OK: $("${FABRIC_DIR}/bin/peer" version | head -n 1)"
   exit 0
 fi
 
 echo "Fabric binaries missing or wrong architecture — repairing"
-install_from_cache_or_download
+
+force_dir "${CACHE_ROOT}"
+force_dir "${CACHE_ROOT}/bin"
+force_dir "${CACHE_ROOT}/config"
+
+if ! peer_ok "${CACHE_ROOT}/bin/peer" || [[ ! -f "${CACHE_ROOT}/config/core.yaml" ]]; then
+  echo "==> Downloading Fabric ${FABRIC_VERSION} + CA ${CA_VERSION} for ${os_name}-${arch}"
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "${tmp}"' EXIT
+
+  curl -fsSL \
+    "https://github.com/hyperledger/fabric/releases/download/v${FABRIC_VERSION}/hyperledger-fabric-${os_name}-${arch}-${FABRIC_VERSION}.tar.gz" \
+    | tar -xz -C "${tmp}"
+
+  curl -fsSL \
+    "https://github.com/hyperledger/fabric-ca/releases/download/v${CA_VERSION}/hyperledger-fabric-ca-${os_name}-${arch}-${CA_VERSION}.tar.gz" \
+    | tar -xz -C "${tmp}"
+
+  [[ -d "${tmp}/bin" && -d "${tmp}/config" ]] || {
+    echo "Bad archive layout:" >&2
+    ls -la "${tmp}" >&2
+    exit 1
+  }
+
+  copy_tree "${tmp}/bin" "${CACHE_ROOT}/bin"
+  copy_tree "${tmp}/config" "${CACHE_ROOT}/config"
+  chmod +x "${CACHE_ROOT}/bin/"* || true
+  trap - EXIT
+  rm -rf "${tmp}"
+  echo "Cached at ${CACHE_ROOT}"
+else
+  echo "Using cache ${CACHE_ROOT}"
+fi
+
+echo "==> Installing into ${FABRIC_DIR}"
+force_dir "${FABRIC_DIR}"
+force_dir "${FABRIC_DIR}/bin"
+force_dir "${FABRIC_DIR}/config"
+force_dir "${BISL_TEST_NETWORK}/bin"
+
+copy_tree "${CACHE_ROOT}/bin" "${FABRIC_DIR}/bin"
+copy_tree "${CACHE_ROOT}/config" "${FABRIC_DIR}/config"
+copy_tree "${CACHE_ROOT}/bin" "${BISL_TEST_NETWORK}/bin"
+chmod +x "${FABRIC_DIR}/bin/"* "${BISL_TEST_NETWORK}/bin/"* || true
+
+# Sanity: show what we installed
+ls -la "${FABRIC_DIR}/bin" | head
+file "${FABRIC_DIR}/bin/peer" || true
 
 if ! peer_ok "${FABRIC_DIR}/bin/peer" || ! config_ok; then
-  echo "Failed to install working Fabric binaries" >&2
-  ls -la "${FABRIC_DIR}" "${FABRIC_DIR}/bin" "${FABRIC_DIR}/config" 2>&1 || true
-  file "${FABRIC_DIR}/bin/peer" 2>&1 || true
+  echo "ERROR: peer still not runnable after install" >&2
+  "${FABRIC_DIR}/bin/peer" version 2>&1 || true
   exit 1
 fi
 
