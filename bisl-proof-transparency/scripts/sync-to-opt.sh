@@ -35,6 +35,17 @@ if ! command -v rsync >/dev/null 2>&1; then
   exit 1
 fi
 
+# Docker may have created empty dirs named like files when bind mounts were missing
+for bogus in \
+  "${DST}/explorer/config.json" \
+  "${DST}/explorer/connection-profile/bisl-network.json"
+do
+  if [[ -d "${bogus}" ]]; then
+    echo "Removing bogus mount directory: ${bogus}"
+    "${SUDO[@]}" rm -rf "${bogus}"
+  fi
+done
+
 # Do not overwrite runtime/host-managed paths
 "${SUDO[@]}" "${RSYNC[@]}" \
   --exclude 'fabric/bin/' \
@@ -78,4 +89,7 @@ echo "Synced to ${DST}"
 ls -la "${DST}/scripts" | head
 test -f "${DST}/fabric/test-network/organizations/fabric-ca/registerEnroll.sh"
 test -f "${DST}/fabric/test-network/organizations/ccp-generate.sh"
-echo "Org bootstrap scripts OK"
+test -f "${DST}/explorer/config.json"
+test -f "${DST}/explorer/connection-profile/bisl-network.json"
+test -f "${DST}/explorer/docker-compose.yaml"
+echo "Org bootstrap + Explorer configs OK"

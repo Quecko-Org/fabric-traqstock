@@ -147,3 +147,27 @@ jobs:
           sudo systemctl status bisl-rpc --no-pager || true
           sudo journalctl -u bisl-rpc -n 100 --no-pager || true
           exit 1
+
+      - name: Start Explorer (public :8080)
+        working-directory: ${{ env.BISL_OPT }}
+        run: |
+          set -euxo pipefail
+          # Clean any leftover failed bind-mount dirs from older hosts
+          if [[ -d explorer/config.json ]]; then rm -rf explorer/config.json; fi
+          if [[ -d explorer/connection-profile/bisl-network.json ]]; then
+            rm -rf explorer/connection-profile/bisl-network.json
+          fi
+          test -f explorer/config.json
+          test -f explorer/connection-profile/bisl-network.json
+          EXPLORER_BIND=0.0.0.0 ./scripts/start-explorer.sh
+          for _ in $(seq 1 30); do
+            if curl -sf -o /dev/null http://127.0.0.1:8080/; then
+              echo "Explorer OK on :8080"
+              docker ps --format '{{.Names}} {{.Status}}' | grep explorer || true
+              exit 0
+            fi
+            sleep 2
+          done
+          docker ps -a | grep explorer || true
+          docker logs explorer.bisl --tail 80 || true
+          exit 1
