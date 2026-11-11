@@ -91,6 +91,27 @@ EOF
 fi
 
 PROFILE="${EXPLORER_DIR}/connection-profile/bisl-network.json"
+CONFIG_JSON="${EXPLORER_DIR}/config.json"
+
+# Docker bind-mounts turn missing host files into empty *directories* — clean those up
+for p in "${CONFIG_JSON}" "${PROFILE}"; do
+  if [[ -d "${p}" ]]; then
+    echo "Removing bogus directory created by a prior failed mount: ${p}"
+    rm -rf "${p}"
+  fi
+done
+
+if [[ ! -f "${CONFIG_JSON}" ]]; then
+  echo "ERROR: missing ${CONFIG_JSON}" >&2
+  echo "Deploy package incomplete — force-add explorer/config.json into bisl-deploy and re-sync." >&2
+  exit 1
+fi
+if [[ ! -f "${PROFILE}" ]]; then
+  echo "ERROR: missing ${PROFILE}" >&2
+  echo "Deploy package incomplete — force-add explorer/connection-profile/ into bisl-deploy and re-sync." >&2
+  exit 1
+fi
+
 if grep -q 'BislExp2026!Admin_9kRx' "${PROFILE}"; then
   echo ""
   echo "NOTE: Explorer is using the sample admin password."
@@ -103,7 +124,6 @@ export EXPLORER_BIND="${EXPLORER_BIND:-0.0.0.0}"
 echo "Starting Explorer (bound to ${EXPLORER_BIND}:8080)..."
 echo "  FABRIC_CRYPTO_PATH=${FABRIC_CRYPTO_PATH}"
 docker compose up -d
-
 echo ""
 echo "Explorer is up."
 echo "  Local:    http://localhost:8080"

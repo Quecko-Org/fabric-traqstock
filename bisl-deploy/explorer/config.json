@@ -1,0 +1,9 @@
+{
+  "network-configs": {
+    "bisl-network": {
+      "name": "BISL Proof Transparency Network",
+      "profile": "./connection-profile/bisl-network.json"
+    }
+  },
+  "license": "Apache-2.0"
+}
