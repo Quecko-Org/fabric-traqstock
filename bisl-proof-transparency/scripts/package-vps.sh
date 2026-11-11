@@ -26,9 +26,23 @@ echo "==> Copying test-network"
 rsync -a \
   --exclude 'system-genesis-block' \
   --exclude 'channel-artifacts' \
-  --exclude 'organizations' \
+  --exclude 'organizations/peerOrganizations' \
+  --exclude 'organizations/ordererOrganizations' \
   --exclude 'compose/podman' \
   "${ROOT}/test-network/" "${OUT}/fabric/test-network/"
+
+# Keep only CA/register/ccp bootstrap assets (never ship generated MSPs or CA runtime DB/certs)
+echo "==> Seeding organizations bootstrap scripts"
+rm -rf "${OUT}/fabric/test-network/organizations"
+mkdir -p "${OUT}/fabric/test-network/organizations"
+while IFS= read -r f; do
+  rel="${f#test-network/}"
+  mkdir -p "${OUT}/fabric/test-network/$(dirname "${rel}")"
+  cp "${ROOT}/${f}" "${OUT}/fabric/test-network/${rel}"
+done < <(git -C "${ROOT}" ls-files 'test-network/organizations/**')
+chmod +x "${OUT}/fabric/test-network/organizations/fabric-ca/registerEnroll.sh" \
+  "${OUT}/fabric/test-network/organizations/ccp-generate.sh" \
+  "${OUT}/fabric/test-network/organizations/cfssl/registerEnroll.sh" 2>/dev/null || true
 
 # Chaincode (JS only)
 echo "==> Copying chaincode"

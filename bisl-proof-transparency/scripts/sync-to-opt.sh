@@ -49,9 +49,33 @@ fi
   --exclude 'chaincode/node_modules/' \
   "${SRC}/" "${DST}/"
 
+# Merge org bootstrap scripts/configs without deleting live peer/orderer MSPs or CA runtime
+if [[ -d "${SRC}/fabric/test-network/organizations" ]]; then
+  echo "==> Syncing organizations bootstrap scripts"
+  "${SUDO[@]}" mkdir -p "${DST}/fabric/test-network/organizations"
+  "${SUDO[@]}" rsync -a \
+    --exclude 'peerOrganizations/' \
+    --exclude 'ordererOrganizations/' \
+    --exclude '*.db' \
+    --exclude 'ca-cert.pem' \
+    --exclude 'tls-cert.pem' \
+    --exclude 'IssuerPublicKey' \
+    --exclude 'IssuerRevocationPublicKey' \
+    --exclude 'msp/' \
+    "${SRC}/fabric/test-network/organizations/" \
+    "${DST}/fabric/test-network/organizations/"
+fi
+
 "${SUDO[@]}" chmod +x "${DST}/scripts/"*.sh || true
+"${SUDO[@]}" chmod +x \
+  "${DST}/fabric/test-network/organizations/fabric-ca/registerEnroll.sh" \
+  "${DST}/fabric/test-network/organizations/ccp-generate.sh" \
+  2>/dev/null || true
 # Runner must own the tree for wallet setup / network scripts
 "${SUDO[@]}" chown -R "$(id -u):$(id -g)" "${DST}"
 
 echo "Synced to ${DST}"
 ls -la "${DST}/scripts" | head
+test -f "${DST}/fabric/test-network/organizations/fabric-ca/registerEnroll.sh"
+test -f "${DST}/fabric/test-network/organizations/ccp-generate.sh"
+echo "Org bootstrap scripts OK"
